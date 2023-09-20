@@ -11,8 +11,16 @@ from bs4 import BeautifulSoup
 JW_BUSCAR = "https://www.justwatch.com/es/buscar?q="
 
 
+def get_platforms():
+    if os.path.isfile("./streaming_platforms.txt"):
+        with open('streaming_platforms.txt', 'r') as f_txt:
+            return [txt.upper() for txt in f_txt.read().splitlines()]
+    else:
+        return []
+
+
 def get_names():
-    with open('watchlist.csv') as csv_file:
+    with open('watchlist.csv', 'r') as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         next(csv_reader)  # skip header
         return [row[1] for row in csv_reader]
@@ -55,11 +63,20 @@ def find_stream(html: str, text_input: str):
         print(f'{text_input} cannot be found streaming')
         return text_input, "-"
 
+
+def should_add_to_platform(platforms: list, platform_stream: str):
+    if len(platforms) == 0:
+        return True  # no platforms were provided
+    return any(platform_stream.upper() in string for string in platforms) or any(
+        p.upper() in platform_stream.upper() for p in platforms)
+
+
 def main():
     if not os.path.isfile('./watchlist.csv'):
         print("watchlist.csv file required to be in the same directory as the script")
         exit(1)
     letterboxd_names = get_names()
+    platforms = get_platforms()
     result_rows = []
     for name in letterboxd_names:
         results = search_content(name)
@@ -67,7 +84,8 @@ def main():
             found_title, match = parse_text(results, name)
             if match != "-":
                 title, platform_stream = find_stream(results, found_title)
-                result_rows.append([title, platform_stream])
+                if should_add_to_platform(platforms, platform_stream):
+                    result_rows.append([title, platform_stream])
     with open('results.csv', 'w+', encoding='UTF8', newline='') as f:
         writer = csv.writer(f)
         writer.writerows(result_rows)
